@@ -3291,18 +3291,23 @@ class AbstractAttachment(models.Model):
     # Size of the uploaded file, in bytes
     size: int = models.IntegerField()
 
-    # The two fields below lets us avoid looking up the corresponding
-    # messages/streams to check permissions before serving these files.
+    # The two fields below serve as caches to let us avoid looking up
+    # the corresponding messages/streams to check permissions before
+    # serving these files.
+    #
+    # For both fields, the `null` state is used when a change in
+    # message permissions mean that we need to determine their proper
+    # value.
 
     # Whether this attachment has been posted to a public stream, and
     # thus should be available to all non-guest users in the
     # organization (even if they weren't a recipient of a message
     # linking to it).
-    is_realm_public: bool = models.BooleanField(default=False)
+    is_realm_public: Optional[bool] = models.BooleanField(default=False, null=True)
     # Whether this attachment has been posted to a web-public stream,
     # and thus should be available to everyone on the internet, even
     # if the person isn't logged in.
-    is_web_public: bool = models.BooleanField(default=False)
+    is_web_public: Optional[bool] = models.BooleanField(default=False, null=True)
 
     class Meta:
         abstract = True
@@ -3351,11 +3356,39 @@ post_save.connect(flush_used_upload_space_cache, sender=Attachment)
 post_delete.connect(flush_used_upload_space_cache, sender=Attachment)
 
 
+def validate_attachment_request_for_spectator_access(
+    realm: Realm, attachment: Attachment
+) -> Optional[bool]:
+    if attachment.realm != realm:
+        return False
+
+    # Update cached is_web_public property, if necessary.
+    if attachment.is_web_public is None:
+        attachment.is_web_public = Stream.objects.filter(
+            realm=realm,
+            invite_only=False,
+            is_web_public=True,
+            recipient__in=attachment.messages.values("recipient"),
+        ).exists()
+        attachment.save(update_fields=["is_web_public"])
+
+    return attachment.is_web_public
+
+
 def validate_attachment_request(user_profile: UserProfile, path_id: str) -> Optional[bool]:
     try:
         attachment = Attachment.objects.get(path_id=path_id)
     except Attachment.DoesNotExist:
         return None
+
+    # Update cached is_realm_public property, if necessary.
+    if attachment.is_realm_public is None:
+        attachment.is_realm_public = Stream.objects.filter(
+            realm=user_profile.realm,
+            invite_only=False,
+            recipient__in=attachment.messages.values("recipient"),
+        ).exists()
+        attachment.save(update_fields=["is_realm_public"])
 
     if user_profile == attachment.owner:
         # If you own the file, you can access it.

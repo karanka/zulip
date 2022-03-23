@@ -1369,7 +1369,7 @@ class EditMessageTest(EditMessageTestCase):
                 send_notification_to_new_thread=False,
                 content=None,
             )
-            self.assert_length(queries, 31)
+            self.assert_length(queries, 33)
 
         self.assertFalse(topic_is_muted(desdemona, stream.id, "New topic"))
         self.assertFalse(topic_is_muted(cordelia, stream.id, "New topic"))
@@ -1401,7 +1401,7 @@ class EditMessageTest(EditMessageTestCase):
                 send_notification_to_new_thread=False,
                 content=None,
             )
-            self.assert_length(queries, 31)
+            self.assert_length(queries, 33)
 
         # Cordelia is not subscribed to the private stream, so
         # Cordelia should have had the topic unmuted, while Desdemona
@@ -1436,7 +1436,7 @@ class EditMessageTest(EditMessageTestCase):
                 send_notification_to_new_thread=False,
                 content=None,
             )
-            self.assert_length(queries, 31)
+            self.assert_length(queries, 33)
 
         self.assertFalse(topic_is_muted(desdemona, stream.id, "New topic 2"))
         self.assertFalse(topic_is_muted(cordelia, stream.id, "New topic 2"))
@@ -2190,7 +2190,7 @@ class EditMessageTest(EditMessageTestCase):
                     "topic": "new topic",
                 },
             )
-        self.assert_length(queries, 53)
+        self.assert_length(queries, 55)
         self.assert_length(cache_tries, 13)
 
         messages = get_topic_messages(user_profile, old_stream, "test")
